@@ -1,7 +1,10 @@
+# (Updated 2/15/2021) - Modified thanks to @heyitsfred on GitHub
+# fixes some issues with not all rows not scraping from barChart &
+# not filtering pages without daata
 require("httr");require("rvest");require("xml2");require("quantmod")
 
 # ticker to get IS
-ticker = "AAPL"
+ticker = "RBLX"
 
 # this function will get you the latest quarterly IS (5 quarters)
 getLatestIS = function(ticker)
@@ -23,11 +26,9 @@ getLatestIS = function(ticker)
   df = df[2:nrow(df),]
   
   # get rid of special characters
-  df[,2] <- gsub("\\$","",gsub("\\,","",df[,2]))
-  df[,3] <- gsub("\\$","",gsub("\\,","",df[,3]))
-  df[,4] <- gsub("\\$","",gsub("\\,","",df[,4]))
-  df[,5] <- gsub("\\$","",gsub("\\,","",df[,5]))
-  df[,6] <- gsub("\\$","",gsub("\\,","",df[,6]))
+  for (j in 2:ncol(df)){
+    df[,j] <- gsub("\\$","",gsub("\\,","",df[,j]))
+  }
   
   # select rows only
   ROWS = c("Sales","Cost of Goods","Gross Profit","Operating Expenses",                   
@@ -37,7 +38,14 @@ getLatestIS = function(ticker)
   
   df = lapply(as.list(1:length(ROWS)), function(ii){
     tmp = subset(df, df$Description == ROWS[ii])
-    tmp[1,2:ncol(tmp)] = paste0(tmp[1,2:ncol(tmp)],VAL) 
+    if(nrow(tmp) == 0 ) {   
+      tmp_names = colnames(tmp)
+      tmp = data.frame(matrix(rep('N/A',ncol(df)),nrow=1) )   
+      colnames(tmp) = tmp_names
+      tmp[1]= ROWS[ii] #want the missing expense type put into the names column
+    }else{
+      tmp[1,2:ncol(tmp)] = paste0(tmp[1,2:ncol(tmp)],VAL) 
+    }
     tmp
   })
   # remove any empty cases
@@ -76,7 +84,13 @@ getRestIS = function(ticker)
       pg
   })
   # remove empty lists - removes pages without content
-  pg = pg[lapply(pg, length)>0]
+  keep = rep(TRUE, length(pg))
+  for (j in 1:length(pg)){
+    tmp = pg[j][[1]] %>% html_nodes("table") %>% html_table() %>% as.data.frame()
+    if(nrow(tmp)==0) {keep[j] =FALSE} #if there is no dataframe from this URL - remove it
+  }
+  pg = pg[keep] #only keep the urls with actual data
+  
   # extract tables
   df = lapply(as.list(1:length(pg)), function(ii){
     
@@ -93,12 +107,9 @@ getRestIS = function(ticker)
     df = df[2:nrow(df),]
     
     # get rid of special characters
-    df[,2] <- gsub("\\$","",gsub("\\,","",df[,2]))
-    df[,3] <- gsub("\\$","",gsub("\\,","",df[,3]))
-    df[,4] <- gsub("\\$","",gsub("\\,","",df[,4]))
-    df[,5] <- gsub("\\$","",gsub("\\,","",df[,5]))
-    df[,6] <- gsub("\\$","",gsub("\\,","",df[,6]))
-    
+    for (j in 2:ncol(df)){
+      df[,j] <- gsub("\\$","",gsub("\\,","",df[,j]))
+    }
     
     # select rows only
     ROWS = c("Sales","Cost of Goods","Gross Profit","Operating Expenses",                   
@@ -108,7 +119,14 @@ getRestIS = function(ticker)
     # subset select rows
     df = lapply(as.list(1:length(ROWS)), function(ii){
       tmp = subset(df, df$Description == ROWS[ii])
-      tmp[1,2:ncol(tmp)] = paste0(tmp[1,2:ncol(tmp)],VAL) 
+      if(nrow(tmp) == 0 ) {   
+        tmp_names = colnames(tmp)
+        tmp = data.frame(matrix(rep('N/A',ncol(df)),nrow=1) )   
+        colnames(tmp) = tmp_names
+        tmp[1]= ROWS[ii] #want the missing expense type put into the names column
+      }else{
+        tmp[1,2:ncol(tmp)] = paste0(tmp[1,2:ncol(tmp)],VAL) 
+      }
       tmp
     })
     # remove any empty cases
@@ -137,7 +155,6 @@ getRestIS = function(ticker)
 PGS = getRestIS(ticker=ticker)
 # combine tables
 IS = cbind(pg1, PGS)
-
 
 # add IS ratios
 getISRatios = function(IS,ticker)
