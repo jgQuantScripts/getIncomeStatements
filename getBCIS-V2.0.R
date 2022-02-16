@@ -1,4 +1,4 @@
-# (Updated 2/15/2021) - Modified thanks to @heyitsfred on GitHub
+# (Updated 2/15/2022) - Modified thanks to @heyitsfred on GitHub
 # fixes some issues with not all rows not scraping from barChart &
 # not filtering pages without daata
 require("httr");require("rvest");require("xml2");require("quantmod")
